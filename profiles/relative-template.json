@@ -1,0 +1,21 @@
+{
+  "name": "Relative-key template — customize for your game and locomotive",
+  "description": "A/D power and apostrophe/semicolon brake. Not game-validated. Start with both physical and game controls matched. Change steps and keys to match your locomotive.",
+  "pulse_ms": 80,
+  "gap_ms": 60,
+  "power": {"mode": "relative", "steps": 8, "increase": "KEY_A", "decrease": "KEY_D"},
+  "brake": {"mode": "relative", "steps": 8, "increase": "KEY_APOSTROPHE", "decrease": "KEY_SEMICOLON"},
+  "buttons": {
+    "pedal": "KEY_SPACE",
+    "a": "KEY_Q",
+    "b": "KEY_TAB",
+    "c": "KEY_ENTER",
+    "d": "KEY_E",
+    "start": "KEY_ESC",
+    "select": "KEY_F1",
+    "up": "KEY_UP",
+    "down": "KEY_DOWN",
+    "left": "KEY_LEFT",
+    "right": "KEY_RIGHT"
+  }
+}

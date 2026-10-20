@@ -1,0 +1,4 @@
+# open-shinkansen opt-in access; no graphical session or logind seat ACL required.
+SUBSYSTEM=="usb", ATTR{idVendor}=="0ae4", ATTR{idProduct}=="0005", GROUP="open-shinkansen", MODE="0660"
+# Restrict input-node access to this driver's virtual joystick, not physical keyboards.
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="open-shinkansen Virtual Joystick", ENV{ID_INPUT_JOYSTICK}="1", GROUP="open-shinkansen", MODE="0660"

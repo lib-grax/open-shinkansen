@@ -1,0 +1,3 @@
+# OPTIONAL. /dev/uinput permits injecting arbitrary keyboard/mouse input.
+# Restrict to an explicit opt-in group, NEVER world-writable MODE=0666.
+SUBSYSTEM=="misc", KERNEL=="uinput", GROUP="open-shinkansen", MODE="0660", OPTIONS+="static_node=uinput"

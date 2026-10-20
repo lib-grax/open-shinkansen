@@ -1,0 +1,11 @@
+.venv/
+.rename-backup/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+captures/*
+!captures/.gitkeep
