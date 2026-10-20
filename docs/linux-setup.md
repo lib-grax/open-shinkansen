@@ -26,6 +26,13 @@ the earlier `evdev` wheel-build failure on supported platforms. A conflicting ol
 input-library provider is removed **only inside the project venv**, then the
 correct provider is installed. No global Python packages are changed.
 
+If version 0.2.1 stopped with `libusb cannot load: attempted relative import with
+no known parent package`, that was an installer import-path bug, not missing
+system libusb. Version 0.2.2 launches setup as a package so the project's `usb.py`
+cannot shadow PyUSB. Pull the update and rerun `./setup.sh`; do not delete your
+venv or install system headers to address that message. Existing dependencies
+and matching permissions are reused.
+
 The sections below describe prerequisites and the equivalent manual operations;
 they are not extra steps required after successful automatic setup.
 

@@ -1,7 +1,7 @@
 from importlib import metadata
 from pathlib import Path
 
-from open_shinkansen import doctor, output, service
+from open_shinkansen import __version__, doctor, output, service
 from open_shinkansen.daemon import InstanceLock
 from open_shinkansen.debug import DebugState, render
 
@@ -9,6 +9,7 @@ from open_shinkansen.debug import DebugState, render
 def test_distribution_and_executable_use_the_new_project_name():
     package = metadata.distribution("open-shinkansen")
     assert package.metadata["Name"] == "open-shinkansen"
+    assert package.version == __version__
     scripts = {
         entry.name: entry.value
         for entry in package.entry_points

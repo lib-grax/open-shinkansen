@@ -1,12 +1,14 @@
 import json
+import os
 import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 
-from open_shinkansen import doctor, installer, service
+from open_shinkansen import doctor, installer, service, usb
 
 
 @pytest.fixture
@@ -38,7 +40,10 @@ def test_bootstrap_creates_private_environment_and_reexecutes_only_its_python(pr
     builder.return_value.create.assert_called_once_with(project / ".venv")
     command = run.call_args.args[0]
     assert command[0] == project / ".venv/bin/python"
+    assert command[1:3] == ["-m", "open_shinkansen.installer"]
     assert command[-1] == "--_venv"
+    assert run.call_args.kwargs["cwd"] == project
+    assert run.call_args.kwargs["env"]["PYTHONPATH"] == str(project / "src")
 
 
 def test_unusable_environment_is_backed_up_not_deleted(project, monkeypatch):
@@ -115,6 +120,16 @@ def test_finish_cannot_run_pip_outside_the_project_environment(project, monkeypa
     run.assert_not_called()
 
 
+def test_pip_does_not_inherit_the_bootstrap_import_path(monkeypatch):
+    monkeypatch.setenv("PYTHONPATH", "/project/src")
+    run = MagicMock()
+    monkeypatch.setattr(installer, "run", run)
+    installer.pip(["install", "--upgrade", "pip"])
+    assert "PYTHONPATH" not in run.call_args.kwargs["env"]
+    assert os.environ["PYTHONPATH"] == "/project/src"
+    assert run.call_args.args[0] == [sys.executable, "-m", "pip", "install", "--upgrade", "pip"]
+
+
 @pytest.mark.parametrize("binary,wrong", [(True, "evdev"), (False, "evdev-binary")])
 def test_conflicting_input_providers_are_migrated_only_inside_the_venv(monkeypatch, binary, wrong):
     monkeypatch.setattr(installer.sys, "platform", "linux")
@@ -156,6 +171,7 @@ def installed(project, monkeypatch):
     monkeypatch.setattr(installer.sys, "executable", str(project / ".venv/bin/python"))
     monkeypatch.setattr(installer.sys, "platform", "linux")
     monkeypatch.setattr(installer, "prepare_evdev", MagicMock())
+    monkeypatch.setattr(usb, "backend", MagicMock())
     monkeypatch.setattr(installer.time, "sleep", lambda seconds: None)
     monkeypatch.setattr(installer, "administrator_command", lambda: "/usr/bin/sudo")
     monkeypatch.setattr(installer, "permissions_configured", lambda *args: False)
@@ -283,6 +299,59 @@ def test_setup_help_works_from_outside_the_checkout_without_changes(tmp_path):
     )
     assert result.returncode == 0, result.stderr
     assert "one-time open-shinkansen setup" in result.stdout.lower()
+
+
+def test_bootstrap_module_context_loads_real_pyusb_not_the_local_transport(monkeypatch):
+    root = Path(__file__).parents[1]
+    monkeypatch.setattr(installer, "preflight", MagicMock())
+    monkeypatch.setattr(installer, "usable_venv", lambda directory: True)
+    run = MagicMock()
+    monkeypatch.setattr(installer, "run", run)
+    installer.bootstrap(root, arguments(), user())
+    command = run.call_args.args[0]
+    environment = run.call_args.kwargs["env"]
+    assert command[1:3] == ["-m", "open_shinkansen.installer"]
+    assert environment["PYTHONPATH"] == str(root / "src")
+    assert str(root / "src/open_shinkansen") not in environment["PYTHONPATH"].split(os.pathsep)
+    probe = (
+        "import json,usb,usb.core; from open_shinkansen.usb import backend; "
+        "backend(); print(json.dumps({'package':usb.__file__,'module':usb.core.__name__}))"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", probe],
+        cwd=run.call_args.kwargs["cwd"],
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    loaded = json.loads(result.stdout)
+    assert loaded["module"] == "usb.core"
+    assert Path(loaded["package"]).name == "__init__.py"
+    assert Path(loaded["package"]).resolve() != (root / "src/open_shinkansen/usb.py").resolve()
+
+
+def test_filename_execution_would_reproduce_the_reported_pyusb_shadowing():
+    root = Path(__file__).parents[1]
+    probe = "import sys; sys.path.insert(0,sys.argv[1]); import usb.backend.libusb1"
+    result = subprocess.run(
+        [sys.executable, "-c", probe, str(root / "src/open_shinkansen")],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode != 0
+    assert "attempted relative import with no known parent package" in result.stderr
+
+
+def test_macos_setup_verifies_libusb_before_reporting_success(project, installed, monkeypatch):
+    monkeypatch.setattr(installer.sys, "platform", "darwin")
+    usb.backend.side_effect = usb.DeviceError("Unable to load libusb")
+    with pytest.raises(usb.DeviceError, match="Unable to load libusb"):
+        installer.finish(project, arguments(), user())
+    usb.backend.assert_called_once_with()
 
 
 def test_existing_permission_configuration_is_verified_without_overwriting_it(

@@ -12,4 +12,7 @@ if ! python3 -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 9) el
     echo 'open-shinkansen requires Python 3.9 or newer. Update Python using your OS supported tools.' >&2
     exit 1
 fi
-exec python3 "$project_dir/src/open_shinkansen/installer.py" "$@"
+# A filename inside the package would add src/open_shinkansen to sys.path,
+# allowing its usb.py to shadow the third-party PyUSB package named usb.
+cd -- "$project_dir"
+PYTHONPATH="$project_dir/src" exec python3 -m open_shinkansen.installer "$@"

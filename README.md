@@ -87,7 +87,7 @@ to sudo/doas when permission setup is needed are prerequisites. Unusual Python/
 architecture combinations may still require source-build dependencies; see
 [Linux setup](docs/linux-setup.md).
 
-**Already cloned or recovering from the earlier evdev build failure?** In your
+**Already cloned or recovering from an earlier setup failure?** In your
 existing project directory:
 
 ```sh

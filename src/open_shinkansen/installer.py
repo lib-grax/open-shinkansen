@@ -45,6 +45,14 @@ def run(command, **kwargs):
     return subprocess.run([str(arg) for arg in command], check=True, **kwargs)
 
 
+def pip(arguments):
+    # Only the setup launcher needs PYTHONPATH. Passing it to pip would expose
+    # src/*.egg-info ahead of the venv metadata and can break editable upgrades.
+    environment = dict(os.environ)
+    environment.pop("PYTHONPATH", None)
+    return run([sys.executable, "-m", "pip", *arguments], env=environment)
+
+
 def permissions_configured(project, user):
     """Allow safe reruns without another admin prompt when host setup already matches."""
     try:
@@ -157,13 +165,13 @@ def bootstrap(project, args, user):
                 "Could not create a Python environment with pip. Your host needs Python's "
                 "venv/ensurepip support; see docs/linux-setup.md. No environment was deleted."
             ) from exc
-    command = [directory / "bin/python", Path(__file__).resolve(), "--_venv"]
+    command = [directory / "bin/python", "-m", "open_shinkansen.installer", "--_venv"]
     if args.dev:
         command.append("--dev")
     if args.replace_service:
         command.append("--replace-service")
     try:
-        run(command)
+        run(command, cwd=project, env={**os.environ, "PYTHONPATH": str(project / "src")})
     except subprocess.CalledProcessError as exc:
         # The venv phase already printed the actual error; don't bury it under
         # another outer traceback/command summary.
@@ -183,7 +191,7 @@ def prepare_evdev():
     # Both distributions own the same evdev module files. Remove both so pip
     # reinstalls exactly one complete provider rather than leaving overlapping files.
     print("Updating the input backend inside this project's venv...", flush=True)
-    run([sys.executable, "-m", "pip", "uninstall", "--yes", "evdev", "evdev-binary"])
+    pip(["uninstall", "--yes", "evdev", "evdev-binary"])
 
 
 def finish(project, args, user):
@@ -192,13 +200,16 @@ def finish(project, args, user):
         raise RuntimeError(
             "Refusing to install dependencies outside this project's virtual environment."
         )
-    run([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
+    pip(["install", "--upgrade", "pip"])
     prepare_evdev()
     package = str(project) + ("[dev]" if args.dev else "")
-    run([sys.executable, "-m", "pip", "install", "--only-binary=evdev-binary", "-e", package])
+    pip(["install", "--only-binary=evdev-binary", "-e", package])
     importlib.invalidate_caches()
-    # Editable .pth files are newly installed; this process started before pip ran.
-    sys.path.insert(0, str(project / "src"))
+    # The launcher supplies only the source parent directory, never the package
+    # directory itself. Verify the real backend on macOS too, before returning.
+    from open_shinkansen.usb import backend
+
+    backend()
     if sys.platform == "darwin":
         print(
             "\nSetup complete. macOS USB/debug tools are installed; no Linux service was created."
