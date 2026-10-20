@@ -106,5 +106,7 @@ install -m 0644 "$script_dir/70-open-shinkansen-uinput.rules" /etc/udev/rules.d/
 install -m 0644 "$script_dir/open-shinkansen.conf" "$module_destination"
 udevadm control --reload-rules
 udevadm trigger --subsystem-match=misc --sysname-match=uinput
-echo 'Done. Reboot (or fully log out/in) for group membership, then unplug/replug the controller.'
+udevadm trigger --subsystem-match=usb --attr-match=idVendor=0ae4 --attr-match=idProduct=0005
+udevadm settle --timeout=10
+echo 'Permission rules installed. New group membership requires a reboot or full logout/login.'
 echo 'Do not run the Python service installer using sudo.'

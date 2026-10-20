@@ -63,7 +63,57 @@ inherently open-loop: train-specific notches, key timing, focus and in-game
 changes can cause drift. Prefer axes/direct game APIs for exact control. See
 [research and rationale](docs/research.md) for sources and alternatives.
 
-## Install on systemd-based Linux
+## Quick start
+
+On Linux, open a normal terminal and run:
+
+```sh
+git clone https://github.com/lib-grax/open-shinkansen.git
+cd open-shinkansen
+./setup.sh
+```
+
+**Do not run the script with sudo.** It requests your administrator password only
+if it needs to set device permissions. It installs the Python dependencies in a
+private `.venv`, configures USB/uinput access, and enables the background service.
+If it says **REBOOT REQUIRED**, reboot and log back in. You do not need to rerun
+setup; plug in the controller and the service handles it automatically.
+
+The setup uses prebuilt input-library wheels on supported x86-64 Linux/Python
+versions, including Python 3.13, so those installations need no compiler or Linux
+development headers. There is no SteamOS-specific code or package-manager command.
+Python **3.9+** with venv/pip, systemd user services, udev, kernel uinput and access
+to sudo/doas when permission setup is needed are prerequisites. Unusual Python/
+architecture combinations may still require source-build dependencies; see
+[Linux setup](docs/linux-setup.md).
+
+**Already cloned or recovering from the earlier evdev build failure?** In your
+existing project directory:
+
+```sh
+git pull --ff-only
+./setup.sh
+```
+
+Rerunning setup is safe: matching configuration is reused, an unusable/copied venv
+is backed up rather than deleted, and unfamiliar service/permission files are not
+silently replaced. Keep the project folder in place after installation. Updating
+the driver may restart its virtual joystick, so do not run setup during gameplay.
+
+On **macOS**, the same `./setup.sh` installs only USB/debug tools, without sudo,
+Linux permissions or a background service. Then run:
+
+```sh
+.venv/bin/open-shinkansen debug
+```
+
+Game/companion-app bindings remain a separate one-time step. The installer does
+not download game mods or configure game controls for you.
+
+### Advanced / manual Linux installation
+
+Normal users can skip this section: `./setup.sh` performs the steps below and
+handles service activation after a permission-related reboot automatically.
 
 Prerequisites: **Python 3.9+** with venv/pip, **systemd user services**, **udev**,
 kernel **uinput** support, and USB access. No Steam, graphical desktop, distribution
@@ -95,8 +145,8 @@ containers and security-policy considerations are isolated in
 
 ### Manual monitoring / macOS development
 
-Create/install the venv as above (add `'.[dev]'` for tests/lint), but skip the Linux
-permission/service steps on macOS. Bundled libusb normally suffices; Homebrew
+Run `./setup.sh` once (or use `./setup.sh --dev` for tests/lint). Bundled libusb
+normally suffices on macOS; Homebrew
 `libusb` is an alternative. For manual commands, stop any running service first:
 
 ```sh

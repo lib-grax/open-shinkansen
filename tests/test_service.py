@@ -52,6 +52,15 @@ def test_identical_install_is_idempotent(environment):
     assert not list(service.unit_path().parent.glob("*.backup-*"))
 
 
+def test_service_can_be_enabled_without_starting_before_reboot(environment):
+    service.manage("install", start=False)
+    assert service.unit_path().exists()
+    assert [call.args[0] for call in environment.call_args_list] == [
+        ["systemctl", "--user", "daemon-reload"],
+        ["systemctl", "--user", "enable", service.UNIT_NAME],
+    ]
+
+
 def test_existing_custom_unit_is_not_overwritten_without_explicit_replace(environment):
     path = service.unit_path()
     path.parent.mkdir(parents=True)

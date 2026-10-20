@@ -7,6 +7,28 @@ is selected by the driver. See [service management](background-service.md) for
 normal operation after setup, and [optional platform notes](platform-notes.md)
 for immutable systems, containers and host security policies.
 
+## Recommended: one command after cloning
+
+```sh
+git clone https://github.com/lib-grax/open-shinkansen.git
+cd open-shinkansen
+./setup.sh
+```
+
+Run as your normal user, **not sudo**. Setup prepares the private Python environment,
+installs the driver, requests administrator access only for device permissions,
+and enables the service. If new group membership needs a reboot, startup is
+deferred until your next login after reboot; setup does not need rerunning.
+Otherwise the service starts immediately. It never reboots automatically.
+
+For an existing clone, `git pull --ff-only` followed by `./setup.sh` also repairs
+the earlier `evdev` wheel-build failure on supported platforms. A conflicting old
+input-library provider is removed **only inside the project venv**, then the
+correct provider is installed. No global Python packages are changed.
+
+The sections below describe prerequisites and the equivalent manual operations;
+they are not extra steps required after successful automatic setup.
+
 ## 1. Dependencies
 
 Provide these capabilities using your host's supported administration tools:
@@ -32,11 +54,22 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -e .
 ```
 
-PyUSB, bundled libusb and evdev are installed in that environment. If wheels are
-unavailable for the host's Python/architecture, supply a compiler, matching Python
-development headers and Linux input headers before building evdev. A system
+PyUSB, bundled libusb and the input backend are installed in that environment.
+On x86-64 Linux with CPython 3.9-3.14, the project selects upstream
+**`evdev-binary>=1.9.3,<2`**, which provides the same `evdev` Python module without
+compiling on the host. The installer requires a wheel for that provider and does
+not silently fall back to compiling it. Other architectures/interpreters or newer
+Python versions use source `evdev` and need a compiler, matching Python development
+headers and Linux input headers. Do not install both providers into the same venv.
+A system
 libusb 1.0 installation is an alternative to the bundled library. Do not copy a
 virtual environment between operating systems or replace system Python.
+
+Prebuilt evdev exposes the kernel interface available when its wheel was built;
+as upstream notes, it may not expose every feature of every kernel. This driver
+uses basic key/axis/uinput operations, not advanced force feedback. Test the real
+virtual joystick on your host; compiler-free installation is not proof of game
+or hardware compatibility. See [upstream installation notes](https://python-evdev.readthedocs.io/en/latest/install.html#binary-wheels).
 
 ## 2. One-time USB and virtual-input permissions
 

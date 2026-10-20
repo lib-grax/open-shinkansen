@@ -7,7 +7,9 @@ distributions; there is no OS-release or Steam-specific branch in the code.
 ## Immutable / declaratively managed systems
 
 On immutable systems (including SteamOS-based devices), do not disable read-only
-protection or replace system Python just to install this driver. Keep the project
+protection or replace system Python just to install this driver. `./setup.sh`
+uses prebuilt input-library wheels on supported x86-64 CPython versions, including
+3.13, to avoid the missing-kernel-header build error. Keep the project
 and its Linux-created venv in a writable user directory. Use the OS's supported
 approach for Python development dependencies if evdev needs to be built.
 

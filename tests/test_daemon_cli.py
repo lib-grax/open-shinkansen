@@ -63,3 +63,10 @@ def test_service_commands_dispatch_without_opening_usb(monkeypatch):
     monkeypatch.setattr(service, "manage", manage)
     assert main(["service", "install", "--replace"]) == 0
     manage.assert_called_once_with("install", replace=True)
+
+
+def test_service_no_start_flag_is_passed_to_installer(monkeypatch):
+    manage = MagicMock()
+    monkeypatch.setattr(service, "manage", manage)
+    assert main(["service", "install", "--no-start"]) == 0
+    manage.assert_called_once_with("install", replace=False, start=False)

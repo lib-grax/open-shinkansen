@@ -10,6 +10,11 @@ The unit is **`open-shinkansen.service`**. If upgrading from the earlier name,
 follow [renaming.md](renaming.md) to avoid running two services or conflicting
 device permission rules.
 
+For ordinary installation, use **`./setup.sh`** in the cloned project. It performs
+the setup described below, enabling the service without starting it prematurely
+when a reboot is needed for group permissions. The manual commands here are for
+troubleshooting or administrator-managed installations.
+
 After one-time device permissions, installation and game calibration:
 
 - Starts automatically when the configured user logs in.
@@ -42,9 +47,10 @@ python3 -m venv .venv
 ```
 
 No development dependencies are needed for ordinary use. Installation includes
-PyUSB, bundled libusb and Linux evdev. If evdev has no wheel for your Python and
-architecture, pip needs a compiler and the matching Python/Linux development
-headers. Supply these using the host's supported administration tools; the
+PyUSB, bundled libusb and Linux input bindings. Supported x86-64 CPython versions
+use prebuilt `evdev-binary` wheels (the import remains `evdev`); other platforms
+can require source-build dependencies. See `linux-setup.md` for the exact selection.
+Supply any required build tools using the host's supported administration tools; the
 installer never selects a package manager, replaces system Python or disables
 OS protections. See optional [platform notes](platform-notes.md) for exceptions.
 
@@ -93,6 +99,10 @@ cd ~/Projects/open-shinkansen
 .venv/bin/open-shinkansen service install
 .venv/bin/open-shinkansen service status
 ```
+
+The automatic setup uses `service install --no-start` internally to enable the
+unit for next login, then starts/restarts it only when current-session permissions
+are ready. Manual installation can use that flag for the same deferred startup.
 
 This writes `~/.config/systemd/user/open-shinkansen.service` (or the
 corresponding `$XDG_CONFIG_HOME` path), reloads the user manager and runs

@@ -13,8 +13,9 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python -m pip install --upgrade pip
-      - run: python -m pip install -e '.[dev]'
+      - run: python -m pip install --only-binary=evdev-binary -e '.[dev]'
       - run: python -m pytest
       - run: python -m ruff check .
       - run: python -m ruff format --check .
       - run: bash -n linux/setup-permissions.sh
+      - run: bash -n setup.sh

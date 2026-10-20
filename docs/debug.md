@@ -7,6 +7,9 @@ There are no new UI dependencies: the renderer uses the Python standard library.
 
 ## Start on this Mac
 
+Install once using `./setup.sh` from the cloned project. On macOS it needs no
+administrator access and creates no Linux background service.
+
 With the controller connected and the project venv installed:
 
 ```sh

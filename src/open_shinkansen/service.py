@@ -62,7 +62,7 @@ def _systemctl(*args):
     subprocess.run(["systemctl", "--user", *args], check=True)
 
 
-def install(replace=False):
+def install(replace=False, start=True):
     path = unit_path()
     # Do not resolve symlinks: .venv/bin/python must NOT become system Python.
     content = render_unit(Path(sys.executable).absolute())
@@ -86,7 +86,7 @@ def install(replace=False):
         with path.open("x", encoding="utf-8") as handle:
             handle.write(content)
     _systemctl("daemon-reload")
-    _systemctl("enable", "--now", UNIT_NAME)
+    _systemctl(*(("enable", "--now", UNIT_NAME) if start else ("enable", UNIT_NAME)))
     print(f"Enabled {UNIT_NAME} for this user's login sessions.")
     print("The service does not install device permissions. See docs/background-service.md.")
 
@@ -108,13 +108,13 @@ def uninstall():
     )
 
 
-def manage(action, replace=False):
+def manage(action, replace=False, start=True):
     if sys.platform != "linux":
         raise RuntimeError("Service management requires Linux and a systemd user session")
     if os.geteuid() == 0:
         raise RuntimeError("Run service management as your normal user, NOT sudo/root")
     if action == "install":
-        install(replace=replace)
+        install(replace=replace, start=start)
     elif action == "uninstall":
         uninstall()
     elif action in ("start", "stop", "restart", "status"):

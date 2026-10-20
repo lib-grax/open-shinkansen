@@ -51,6 +51,9 @@ def parser():
     install.add_argument(
         "--replace", action="store_true", help="Back up and replace a differing unit"
     )
+    install.add_argument(
+        "--no-start", action="store_true", help="Enable for next login without starting now"
+    )
     for action in ("uninstall", "start", "stop", "restart", "status", "logs"):
         actions.add_parser(action)
     monitor = sub.add_parser("monitor", help="Watch decoded inputs (macOS or Linux)")
@@ -205,7 +208,10 @@ def _run(args):
     if args.command == "service":
         from .service import manage
 
-        manage(args.action, replace=getattr(args, "replace", False))
+        options = {"replace": getattr(args, "replace", False)}
+        if getattr(args, "no_start", False):
+            options["start"] = False
+        manage(args.action, **options)
         return
     if args.command in ("monitor", "bridge"):
         _run_inputs(args)
