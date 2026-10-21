@@ -2,6 +2,10 @@
 
 ## Current boundary
 
+For the short explanation, start with [game-integration.md](game-integration.md).
+Linux input debugging has been confirmed by the operator; that is not the same
+as validating a virtual-joystick or in-game connection.
+
 The physical TCPP-20011 input protocol and display writes have been exercised on
 the Mac. The driver contains Linux uinput output, but **real Linux virtual input
 and Running Train integration have not yet been verified**. This is a plan, not a

@@ -1,8 +1,9 @@
 # Terminal ASCII controller test
 
-`debug` is a standalone, input-only dashboard for **macOS and Linux**. It reads
-the physical controller directly using the existing USB driver. It does **not**
-create virtual devices, inject keys, or send speedometer/LED/rumble commands.
+`debug` is a standalone dashboard for **macOS and Linux**. By default it reads
+controller inputs only: no virtual devices, injected keys or display commands.
+The explicit `--outputs` mode adds manual tests for the speedometer, ATC limit
+and door lamp. Rumble is always disabled.
 There are no new UI dependencies: the renderer uses the Python standard library.
 
 ## Start on this Mac
@@ -96,4 +97,45 @@ A real terminal uses its alternate screen and hides the cursor only for this
 command. Output redirected to a file/pipe, `TERM=dumb`, or `--plain` uses plain
 snapshots instead. Those snapshots are rate-limited and emitted for new reports,
 plus an initial/final frame; they do not continuously spam idle status updates.
-The UI does not read ordinary keyboard input; Ctrl-C is the quit action.
+Without `--outputs`, the UI does not read ordinary keyboard input; Ctrl-C is the
+quit action.
+
+## Test the physical speedometer, ATC and door light
+
+Stop the background service on Linux (as above), then run in a normal terminal:
+
+```sh
+.venv/bin/open-shinkansen debug --outputs
+```
+
+| Computer keyboard key | Action |
+| --- | --- |
+| Tab / Shift-Tab | Select Speed, ATC or Door; the selected field is marked `>...<` |
+| Up / Down | Increase/decrease selected Speed or ATC by 1 km/h |
+| Right / Left | Increase/decrease selected Speed or ATC by 10 km/h |
+| Space / Enter | Toggle the door light when Door is selected |
+| Up/Right or Down/Left on Door | Turn the lamp on or off explicitly |
+| Q / Ctrl-C | Quit, reset the numeric displays to 0 / 0, and switch the lamp off |
+
+Speed and ATC values are limited to **0-999**. The speed gauge follows the requested
+speed. Entering output mode initializes displays to zero and the lamp to off.
+Tab changes focus only; it does not write to USB. Arrows operate the computer
+keyboard, not the controller's physical D-pad, which is still shown as an input.
+Use roughly 80x24 for the full panel; the compact view shows one selected field.
+
+These are **requested manual values, not readings returned by the hardware**.
+USB write success only means that the transfer completed: look at the controller
+to confirm each number/lamp. All payloads keep both rumble motors off. The tool
+attempts a zero/off reset on normal exit, errors, Ctrl-C, SIGTERM and terminal
+hangup. Disconnect, SIGKILL or power loss can prevent a confirmed reset; check
+the hardware in that case. Terminal settings are restored on handled exits.
+
+The mode requires interactive terminal input/output and live USB. It cannot be
+combined with `--plain` or `--replay`, and will not take commands from a pipe.
+`--duration` and `--record` still work, but recordings contain **controller input
+reports only**, not keyboard/display actions. Bare `debug` remains input-only and
+does not read keyboard keys or reset outputs when it exits.
+
+Exit debug and restart the service before using a game. Manual output tests do
+not connect to Running Train or provide automatic game feedback; see
+[game integration explained](game-integration.md).

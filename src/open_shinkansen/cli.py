@@ -67,6 +67,11 @@ def parser():
     debug.add_argument(
         "--plain", action="store_true", help="Print snapshots instead of a live terminal screen"
     )
+    debug.add_argument(
+        "--outputs",
+        action="store_true",
+        help="Enable manual speed/ATC/door tests using Tab/arrows; reset outputs on exit",
+    )
     bridge = sub.add_parser("bridge", help="Translate inputs into a virtual Linux device")
     bridge.add_argument("--output", choices=("joystick", "keyboard"), default="joystick")
     bridge.add_argument("--profile", help="Keyboard mapping JSON; required for keyboard output")
@@ -158,6 +163,16 @@ def _run_inputs(args):
 def _run_debug(args):
     from .debug import Dashboard, DebugState, summary
 
+    controls = None
+    if args.outputs:
+        from .debug_controls import DisplayControls, TerminalKeys, require_terminal
+
+        if args.replay or args.plain:
+            raise ValueError(
+                "debug --outputs requires live USB and cannot be combined with --replay or --plain"
+            )
+        require_terminal()
+        controls = DisplayControls()
     with ExitStack() as stack:
         record = stack.enter_context(recorder(args.record))
         if args.replay:
@@ -170,10 +185,23 @@ def _run_debug(args):
             source = samples(read=lambda: controller.read(20), duration=args.duration)
             label = "LIVE USB 0ae4:0005"
         model = DebugState()
+
         # Register before the screen so the final summary prints after restoring
         # the original terminal, including when Ctrl-C or a USB error ends the run.
-        stack.callback(lambda: print(summary(model), flush=True))
-        dashboard = stack.enter_context(Dashboard(label, bool(args.record), args.plain))
+        def print_summary():
+            print(summary(model), flush=True)
+            if controls is not None:
+                print(controls.summary(), flush=True)
+
+        stack.callback(print_summary)
+        if controls is not None:
+            stack.callback(controls.reset, controller)
+        dashboard = stack.enter_context(
+            Dashboard(label, bool(args.record), args.plain, controls=controls)
+        )
+        if controls is not None:
+            keyboard = stack.enter_context(TerminalKeys())
+            controls.send(controller)
         elapsed = 0.0
         dashboard.draw(model, elapsed, force=True)
         try:
@@ -181,6 +209,12 @@ def _run_debug(args):
                 if raw is not None:
                     record(elapsed, raw)
                     model.observe(elapsed, raw)
+                if controls is not None:
+                    for key in keyboard.read():
+                        controls.handle(key)
+                    if controls.quit:
+                        break
+                    controls.send(controller)
                 dashboard.draw(model, elapsed)
         finally:
             dashboard.draw(model, elapsed, force=True)
@@ -246,6 +280,11 @@ def main(argv=None):
 
     old_term = signal.signal(signal.SIGTERM, terminate)
     old_int = signal.signal(signal.SIGINT, terminate) if args.command == "daemon" else None
+    old_hup = (
+        signal.signal(signal.SIGHUP, terminate)
+        if args.command == "debug" and getattr(args, "outputs", False) and hasattr(signal, "SIGHUP")
+        else None
+    )
     try:
         if args.command == "daemon":
             from .daemon import InstanceLock, run
@@ -295,3 +334,5 @@ def main(argv=None):
         signal.signal(signal.SIGTERM, old_term)
         if old_int is not None:
             signal.signal(signal.SIGINT, old_int)
+        if old_hup is not None:
+            signal.signal(signal.SIGHUP, old_hup)

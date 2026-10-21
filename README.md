@@ -34,7 +34,8 @@ see [rename and migration notes](docs/renaming.md) before enabling the new servi
 This is an initial implementation, not a universal game driver. On the connected
 controller, a live Mac capture verified all power/brake notches, the six buttons,
 cardinal D-pad directions and the horn pedal. Display speed/ATC/lamp output was
-also visually confirmed. **Real Linux uinput, systemd deployment and in-game
+also visually confirmed. The operator has since confirmed the input debug tool
+works on Linux. **Real Linux uinput, service lifecycle and in-game
 integration still need Linux validation.** The local test environment is
 macOS/Python 3.9; CI configuration includes Python 3.9 and 3.13 on Linux and macOS.
 macOS currently supports USB I/O, monitoring, replay and dry-runs, **not** virtual
@@ -49,6 +50,11 @@ The first requested game integration is **Running Train**; see
 been validated.
 
 ## Recommended game compatibility approach
+
+**The driver does not automatically connect to Running Train yet.** It turns the
+USB controller into a standard virtual joystick. Some games bind that directly;
+Running Train needs a separate game-aware bridge/mod and saved calibration.
+See [how games connect, in plain language](docs/game-integration.md).
 
 Use the virtual joystick for games supporting configurable joystick axes, such as
 OpenBVE. For Train Sim World / Train Simulator Classic, **a generic joystick is
@@ -179,6 +185,18 @@ Use a terminal about **80 columns x 24 rows** for the full view.
 `--plain` disables in-place screen updates; redirected output and `TERM=dumb`
 automatically use plain snapshots. Stop any background USB consumer first.
 See [the debug guide](docs/debug.md) for the checklist and counter meanings.
+
+To test the controller's physical displays manually:
+
+```sh
+.venv/bin/open-shinkansen debug --outputs
+```
+
+**Tab** selects Speed / ATC / Door. **Up/Down** changes numbers by 1, **Left/Right**
+by 10, and **Space/Enter** toggles the selected Door lamp. **Q/Ctrl-C** quits and
+resets the displays to 0 / 0 with the lamp off. Rumble stays disabled. This requires
+an interactive terminal and live USB; stop the background service first on Linux.
+These are manual output tests, **not automatic game-speed/ATC/door feedback**.
 
 ### Linux virtual joystick (recommended)
 

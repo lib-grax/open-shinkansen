@@ -1,4 +1,4 @@
-"""ASCII input dashboard for macOS/Linux. No virtual input or device-output writes."""
+"""ASCII input dashboard with optional explicit manual display tests; no game input."""
 
 import math
 import os
@@ -100,7 +100,13 @@ def summary(model):
 
 
 def render(
-    model: DebugState, elapsed: float, source="LIVE USB", recording=False, width=80, height=24
+    model: DebugState,
+    elapsed: float,
+    source="LIVE USB",
+    recording=False,
+    width=80,
+    height=24,
+    controls=None,
 ):
     """Pure ASCII frame; fit the terminal without wrapping at its right/bottom edges."""
     # Leave the last terminal column unused to avoid automatic line wrapping.
@@ -147,7 +153,7 @@ def render(
             f"Seen P:{len(model.powers)}/14 B:{len(model.brakes)}/9 hat:{len(model.hats)}/9 pedal:{len(model.pedals)}/2",
             f"Reports:{model.reports}  Last:{age} (idle is normal)",
             "Raw: " + raw_text,
-            "Ctrl-C quits. Resize to 80x24 for full detail.",
+            "Ctrl-C quits; --outputs tests LEDs",
         ]
     else:
         x, y = HATS[state.hat]
@@ -173,8 +179,34 @@ def render(
             f"Reports:{model.reports}  Changes:{model.changes}  Transitions:{model.transitions}  Unknown:{model.unknown}",
             f"Last report: {age} ago (idle timeouts are normal)",
             coverage,
-            f"Ctrl-C quits | + observed, . unseen, * active | Recording: {'YES' if recording else 'no'}",
+            f"Ctrl-C quits | --outputs: displays | +seen .unseen *active | Recording: {'YES' if recording else 'no'}",
         ]
+    if controls is not None:
+        if width < 71 or height < 24:
+            content = [
+                "OPEN-SHINKANSEN - DISPLAY TEST",
+                "MANUAL VALUES; rumble always OFF",
+                controls.selection(compact=True),
+                "Tab field; U/D +/-1; L/R +/-10",
+                f"Power:{power} Brake:{brake} Pedal:{pedal}",
+                f"D-pad:{dpad} Emergency:{emergency}",
+                " ".join(f"[{n.upper()}:{_mark(n in state.buttons, known)}]" for n in BUTTONS[:4]),
+                " ".join(f"[{n.upper()}:{_mark(n in state.buttons, known)}]" for n in BUTTONS[4:]),
+                f"USB writes:{controls.writes}; Space/Enter: door",
+                "Raw: " + raw_text,
+                "Q/Ctrl-C quits; resets 0/0 + lamp",
+            ]
+        else:
+            content[1] = f"{source} | MANUAL DISPLAY TESTS; rumble always OFF"
+            if recording:
+                content[1] += " [REC]"
+            content[2] = f"Input: {status}   Elapsed: {elapsed:.1f}s"
+            content[3] = controls.selection()
+            content[8] = "Tab field | Up/Down +/-1 | Left/Right +/-10 | Space/Enter door"
+            content[12] = (
+                f"Display USB writes: {controls.writes} (requested values; visually check hardware)"
+            )
+            content[-1] = "Q/Ctrl-C quits + resets displays | Manual tests, NOT game telemetry"
     inner = width - 4
     border = "+" + "-" * (width - 2) + "+"
     return "\n".join(
@@ -185,9 +217,10 @@ def render(
 class Dashboard:
     """ANSI screen on a real terminal, plain snapshots when redirected or --plain."""
 
-    def __init__(self, source="LIVE USB", recording=False, plain=False, stream=None):
+    def __init__(self, source="LIVE USB", recording=False, plain=False, stream=None, controls=None):
         self.stream = stream if stream is not None else sys.stdout
         self.source, self.recording = source, recording
+        self.controls = controls
         self.interactive = self.stream.isatty() and os.environ.get("TERM") != "dumb" and not plain
         self.active = False
         self.last_draw = -math.inf
@@ -205,7 +238,12 @@ class Dashboard:
         return self
 
     def draw(self, model, elapsed, force=False):
-        signature = (model.state, model.raw, model.reports)
+        signature = (
+            model.state,
+            model.raw,
+            model.reports,
+            self.controls.signature if self.controls is not None else None,
+        )
         if not force and (
             elapsed - self.last_draw < 0.1
             or (not self.interactive and signature == self.last_signature)
@@ -217,7 +255,7 @@ class Dashboard:
             size = (81, 24)
         if size[0] <= 0 or size[1] <= 0:
             size = (81, 24)
-        frame = render(model, elapsed, self.source, self.recording, *size)
+        frame = render(model, elapsed, self.source, self.recording, *size, controls=self.controls)
         self.stream.write(
             ("\x1b[H" + frame.replace("\n", "\x1b[K\r\n") + "\x1b[K\x1b[J")
             if self.interactive

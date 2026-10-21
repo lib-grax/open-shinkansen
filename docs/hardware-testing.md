@@ -79,6 +79,8 @@ retain the last valid notch and never jump to full power.
 
 ## ASCII dashboard validation
 
+- The operator subsequently confirmed `debug` works on Linux. This confirms the
+  USB input/dashboard path, not yet game control or automatic display feedback.
 - Synthetic replay and a real pseudo-terminal test cover live-screen rendering,
   small-window behavior, cursor/screen restoration, SIGTERM cleanup and unchanged
   terminal settings. Plain output has no terminal escape sequences.
@@ -96,6 +98,12 @@ retain the last valid notch and never jump to full power.
 Run `open-shinkansen display --speed 120 --limit 160 --door --hold 3`.
 Confirm 120 speed, 160 ATC, eight gauge LEDs and door lamp, then clearing after
 three seconds. Motors must remain off. This is manual test data, not telemetry.
+
+For interactive tests use `open-shinkansen debug --outputs`: Tab selects Speed,
+ATC and Door; arrows edit values and Space/Enter toggles the door lamp. Q/Ctrl-C
+attempts a zero/off reset. This new interactive mode has keyboard, USB-payload,
+cleanup and pseudo-terminal tests; its physical display behavior still needs
+operator confirmation. It uses the same display protocol previously verified.
 
 ## Linux acceptance
 
