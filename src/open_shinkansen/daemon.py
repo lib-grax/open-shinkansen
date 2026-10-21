@@ -65,11 +65,11 @@ class InstanceLock:
             self.fd = None
 
 
-def serve_connection(controller, stop, output_factory, logger=LOG):
+def serve_connection(controller, stop, output_factory, logger=LOG, joystick_profile="generic"):
     """Wait for valid state, create the joystick, and guarantee output cleanup."""
     state = None
     output = None
-    mapper = JoystickMapper()
+    mapper = JoystickMapper(joystick_profile)
     with ExitStack() as resources:
         while not stop.is_set():
             raw = controller.read(100)
@@ -90,24 +90,36 @@ def serve_connection(controller, stop, output_factory, logger=LOG):
             output.emit(mapper.update(state))
 
 
-def run(stop, poll_interval=1.0, controller_factory=None, output_factory=None, logger=LOG):
+def run(
+    stop,
+    poll_interval=1.0,
+    controller_factory=None,
+    output_factory=None,
+    logger=LOG,
+    joystick_profile=None,
+):
     import usb.core
 
     from .output import UInputOutput
+    from .settings import load_profile, validate_profile
     from .usb import Controller, DeviceNotFound
 
     if not math.isfinite(poll_interval) or not 0.1 <= poll_interval <= 60:
         raise ValueError("Hotplug poll interval must be between 0.1 and 60 seconds")
+    joystick_profile = validate_profile(
+        joystick_profile if joystick_profile is not None else load_profile()
+    )
     controller_factory = controller_factory or Controller
     output_factory = output_factory or (lambda: UInputOutput("joystick"))
     last_notice = None
     logger.info("Waiting for TCPP-20011 (0ae4:0005); automatic joystick hotplug enabled")
+    logger.info("Joystick profile: %s", joystick_profile)
     try:
         while not stop.is_set():
             try:
                 with controller_factory() as controller:
                     logger.info("USB controller connected; waiting for valid handle readings")
-                    serve_connection(controller, stop, output_factory, logger)
+                    serve_connection(controller, stop, output_factory, logger, joystick_profile)
             except DeviceNotFound:
                 if last_notice != "absent":
                     logger.info("Controller absent; waiting for it to be plugged in")

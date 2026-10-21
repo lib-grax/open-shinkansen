@@ -13,6 +13,7 @@ from .events import JoystickMapper, KeyboardMapper
 from .output import DryRun, UInputOutput
 from .profiles import load
 from .protocol import Display, decode
+from .settings import JOYSTICK_PROFILES, load_profile, save_profile, validate_profile
 from .stream import recorder, samples
 
 
@@ -34,6 +35,13 @@ def parser():
         "doctor", help="Read-only Linux/systemd setup checks (no controller required)"
     )
     doctor.add_argument("--json", action="store_true", help="Print machine-readable setup results")
+    profile = sub.add_parser("profile", help="Select the persistent virtual-joystick mapping")
+    profiles = profile.add_subparsers(dest="action", required=True)
+    profiles.add_parser("show", help="Show the selected joystick profile")
+    select_profile = profiles.add_parser(
+        "set", help="Save a profile for the next bridge/service start"
+    )
+    select_profile.add_argument("name", choices=JOYSTICK_PROFILES)
     daemon = sub.add_parser("daemon", help="Joystick-only hotplug background worker")
     daemon.add_argument(
         "--poll-interval",
@@ -42,6 +50,11 @@ def parser():
         help="Seconds between USB reconnect attempts (0.1..60; default 1)",
     )
     daemon.add_argument("--dry-run", action="store_true", help="Print events; do not inject input")
+    daemon.add_argument(
+        "--joystick-profile",
+        choices=JOYSTICK_PROFILES,
+        help="Override the saved joystick profile for this run",
+    )
     daemon.add_argument(
         "--duration", type=positive, help="Stop after this many seconds (diagnostics)"
     )
@@ -76,6 +89,11 @@ def parser():
     bridge.add_argument("--output", choices=("joystick", "keyboard"), default="joystick")
     bridge.add_argument("--profile", help="Keyboard mapping JSON; required for keyboard output")
     bridge.add_argument("--dry-run", action="store_true", help="Print events; do not inject input")
+    bridge.add_argument(
+        "--joystick-profile",
+        choices=JOYSTICK_PROFILES,
+        help="Joystick mapping; overrides the saved profile (not for keyboard output)",
+    )
     for command in (monitor, bridge, debug):
         command.add_argument(
             "--replay", metavar="FILE", help="Read timed JSONL instead of real USB"
@@ -96,6 +114,14 @@ def parser():
 
 def _run_inputs(args):
     profile = None
+    joystick_profile = None
+    if args.command == "bridge":
+        if args.output == "keyboard" and args.joystick_profile is not None:
+            raise ValueError("--joystick-profile cannot be used with keyboard output")
+        if args.output == "joystick":
+            joystick_profile = validate_profile(
+                args.joystick_profile if args.joystick_profile is not None else load_profile()
+            )
     if args.command == "bridge" and args.output == "keyboard":
         if not args.profile:
             raise ValueError("Keyboard output requires --profile; see profiles/ for templates")
@@ -116,7 +142,7 @@ def _run_inputs(args):
             source = samples(read=lambda: controller.read(20), duration=args.duration)
             print("Connected to TCPP-20011. Ctrl-C to stop.", file=sys.stderr)
         if args.command == "bridge":
-            mapper = KeyboardMapper(profile) if profile else JoystickMapper()
+            mapper = KeyboardMapper(profile) if profile else JoystickMapper(joystick_profile)
             output = DryRun() if args.dry_run else UInputOutput(args.output)
             stack.callback(output.close)
             stack.callback(lambda: output.emit(mapper.close()))
@@ -221,6 +247,19 @@ def _run_debug(args):
 
 
 def _run(args):
+    if args.command == "profile":
+        if args.action == "show":
+            print(load_profile())
+        else:
+            path = save_profile(args.name)
+            print(f"Saved joystick profile {args.name!r} to {path}")
+            print(
+                "Restart from the project directory to apply: .venv/bin/open-shinkansen service restart"
+            )
+            print(
+                "Rebind the emulator axes after changing profile. No emulator files were changed."
+            )
+        return
     if args.command == "debug":
         _run_debug(args)
         return
@@ -302,6 +341,7 @@ def main(argv=None):
                         stop,
                         poll_interval=args.poll_interval,
                         output_factory=DryRun if args.dry_run else None,
+                        joystick_profile=args.joystick_profile,
                     )
             finally:
                 if timer:

@@ -3,7 +3,8 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from .protocol import HATS, State
+from .protocol import BRAKE_CODES, HATS, POWER_CODES, State
+from .settings import DEFAULT_PROFILE, validate_profile
 
 JOYSTICK_BUTTONS = ("a", "b", "c", "d", "select", "start", "pedal", "emergency")
 AXIS_MAX = 32767
@@ -16,28 +17,47 @@ class Event:
     value: int
 
 
-def joystick_values(state: State) -> dict:
+def joystick_values(state: State, profile=DEFAULT_PROFILE) -> dict:
+    validate_profile(profile)
     if not state.ready:
         return {}
     x, y = HATS[state.hat]
-    # Service B7 is full axis; EB is full brake + a dedicated emergency button.
+    if profile == "pcsx2-shinkansen":
+        # Preserve the original report bytes through PCSX2 FullAxis+inversion
+        # bindings with Axes Passthrough enabled. Positive-at-rest transport
+        # lets PCSX2's pedal-style GUI capture detect the entire handle range.
+        power = round((255 - POWER_CODES[state.power]) * AXIS_MAX / 255)
+        brake = round((255 - BRAKE_CODES[state.brake]) * AXIS_MAX / 255)
+    else:
+        # Generic games get full service brake at B7, with a separate EB button.
+        power = round(state.power * AXIS_MAX / 13)
+        brake = round(min(state.brake, 7) * AXIS_MAX / 7)
     values = {
-        ("abs", "ABS_X"): round(state.power * AXIS_MAX / 13),
-        ("abs", "ABS_Y"): round(min(state.brake, 7) * AXIS_MAX / 7),
+        ("abs", "ABS_X"): power,
+        ("abs", "ABS_Y"): brake,
         ("abs", "ABS_HAT0X"): x,
         ("abs", "ABS_HAT0Y"): y,
     }
     for index, name in enumerate(JOYSTICK_BUTTONS):
-        values[("key", f"BTN_{index}")] = int(name in state.controls)
+        pressed = name in state.controls
+        if profile == "pcsx2-shinkansen":
+            if name == "c":
+                pressed = pressed or state.pedal  # PCSX2 exposes C as horn, not a pedal binding.
+            elif name in ("pedal", "emergency"):
+                # Avoid extra button events forming a chord during axis capture.
+                # Emergency is represented faithfully by its own brake-axis code.
+                pressed = False
+        values[("key", f"BTN_{index}")] = int(pressed)
     return values
 
 
 class JoystickMapper:
-    def __init__(self):
+    def __init__(self, profile=DEFAULT_PROFILE):
+        self.profile = validate_profile(profile)
         self.previous = {}
 
     def update(self, state: State) -> list:
-        values = joystick_values(state)
+        values = joystick_values(state, self.profile)
         events = [
             Event(kind, code, value)
             for (kind, code), value in values.items()
@@ -47,8 +67,14 @@ class JoystickMapper:
         return events
 
     def close(self) -> list:
-        # Release buttons and axes on shutdown/disconnect before destroying the device.
-        events = [Event(kind, code, 0) for (kind, code), value in self.previous.items() if value]
+        # Reset semantic controls before destroying the device. In the raw-byte
+        # profile, neutral/released are encoded nonzero values, not axis zero.
+        neutral = joystick_values(State(power=0, brake=0), self.profile)
+        events = [
+            Event(kind, code, neutral[(kind, code)])
+            for (kind, code), value in self.previous.items()
+            if value != neutral[(kind, code)]
+        ]
         self.previous.clear()
         return events
 

@@ -40,6 +40,10 @@ names, calibration and safety checks. No guessed game profile is bundled.
 
 ## Other games
 
+- **PCSX2 / PS2 Shinkansen:** select the `pcsx2-shinkansen` joystick profile and
+  configure the emulator's USB Train Controller/Shinkansen device with raw-axis
+  passthrough and full/inverted bindings. See [pcsx2.md](pcsx2.md), including the
+  Start Check/emergency-brake checks. This is not display-output forwarding.
 - **Native joystick support:** bind the named device in the game's settings.
 - **Game-specific bridge/API:** use a suitable adapter for that game.
 - **Keyboard-only controls:** the optional keyboard output can send configured
@@ -48,6 +52,11 @@ names, calibration and safety checks. No guessed game profile is bundled.
 
 Open-shinkansen's input protocol does not need rewriting for each game, but the
 game-facing mapping may be different. There is no single universal train-game API.
+
+The default `generic` profile uses a separate emergency button and full service
+brake at B7. The PCSX2 profile instead represents every physical brake position
+on the axis, preserving the emulator's original report values. Restart the
+service after changing a saved profile and change it outside gameplay.
 
 ## What about the speedometer, ATC and door light?
 

@@ -28,6 +28,8 @@ see [rename and migration notes](docs/renaming.md) before enabling the new servi
 - Releases generated input on Ctrl-C, SIGTERM, end of replay, or USB errors.
 - **Set-and-forget joystick service**: starts at user login, waits for plug-in,
   releases on unplug, and automatically reconnects. No background keystrokes.
+- A selectable **PCSX2 Shinkansen profile**, preserving separate B7/emergency
+  and original notch codes for the emulator's USB train-controller mode.
 
 ### Status / limits
 
@@ -55,6 +57,11 @@ been validated.
 USB controller into a standard virtual joystick. Some games bind that directly;
 Running Train needs a separate game-aware bridge/mod and saved calibration.
 See [how games connect, in plain language](docs/game-integration.md).
+
+**PCSX2 / PS2 Shinkansen:** use the dedicated profile and matching emulator
+bindings in [docs/pcsx2.md](docs/pcsx2.md). The generic brake axis is not a faithful
+raw Shinkansen axis. The new profile needs PCSX2 **Axes Passthrough ON** and
+**full/inverted** lever bindings; this includes distinct emergency-brake values.
 
 Use the virtual joystick for games supporting configurable joystick axes, such as
 OpenBVE. For Train Sim World / Train Simulator Classic, **a generic joystick is
@@ -241,6 +248,19 @@ game's emergency action. Some tools number buttons from zero (A=0, emergency=7).
 There is no train-specific combined-handle axis; combine the independent axes in
 your game's bridge if needed. The driver does not suppress simultaneous brake and
 power; train interlocks are the simulator's responsibility.
+
+The table above describes the default **generic** profile. For PCSX2 select:
+
+```sh
+.venv/bin/open-shinkansen profile set pcsx2-shinkansen
+.venv/bin/open-shinkansen service restart
+```
+
+Then **clear and recapture both emulator lever bindings** as described in
+[the PCSX2 guide](docs/pcsx2.md). In that profile, B7 and EB have different axis
+values, the pedal also operates C/horn, and buttons 7/8 are inactive to avoid
+capture chords. Use `profile set generic` and restart to return to normal game
+mapping. Preferences are saved per user, not automatically selected per game.
 
 ### Keyboard fallback
 

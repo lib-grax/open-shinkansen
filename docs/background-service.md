@@ -138,6 +138,12 @@ not** enable lingering, install a root boot daemon or configure passwordless sud
 
 ## Everyday use
 
+The service loads the saved joystick profile at startup. `profile show` displays
+it; `profile set generic` or `profile set pcsx2-shinkansen` changes the next-start
+selection without editing systemd or emulator files. Run `service restart` to
+apply, outside gameplay. `daemon --joystick-profile NAME` is a temporary override.
+The one-command installer preserves this per-user preference across updates.
+
 Plug in the controller and start a configured game. Nothing needs to be typed.
 Bindings should be saved in the game or companion bridge; device name/capabilities
 are stable, but `/dev/input/eventN` and SDL instance IDs can change on reconnect.
